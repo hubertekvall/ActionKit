@@ -20,8 +20,6 @@ func enable_fire():
 
 func fire():
 	if can_fire:
-		if shake_when_firing:
-			EventBus.shake_event.emit(Impact.Magnitude.LOW, global_position)			
 		
 		can_fire = false
 		weapon_configuration.instantiate(get_viewport(), global_position + (Vector3(randf_range(-1.0, 1.0) * x_spread, randf_range(-1.0, 1.0)* y_spread,0)), global_basis)
