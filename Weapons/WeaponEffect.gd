@@ -27,7 +27,6 @@ func resolve_collision (colliding_body : PhysicsBody3D):
 			
 	if config.finish_on_impact:
 		finish_effect()
-		EventBus.shake_event.emit(config.damage.impact, global_position)	
 
 
 	

@@ -1,4 +1,4 @@
-class_name Actor extends CharacterBody3D
+class_name Actor extends CollisionObject3D
 
 
 
@@ -14,9 +14,9 @@ signal death(actor : Actor)
 signal hit(actor : Actor)
 
 
-var as_character : CharacterBody3D:
-	get:
-		return self
+
+
+
 
 		
 
@@ -28,7 +28,7 @@ func _ready():
 		on_spawn_effect.instantiate(get_viewport(), global_position, global_basis)
 		
 	collision_layer = layer
-
+	
 
 
 func receive_damage(weapon_effect : WeaponEffect, incoming_damage : Damage):
