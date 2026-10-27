@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Only the addon is shipped when downloaded as an archive (e.g. from the Asset Library).
+/project.godot export-ignore
+/ActionKit.csproj export-ignore
+/README.md export-ignore
