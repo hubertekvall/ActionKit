@@ -1,0 +1,17 @@
+; Development project for the ActionKit addon. To use ActionKit in a game, copy
+; addons/actionkit into that game's project (see README.md).
+
+config_version=5
+
+[application]
+
+config/name="ActionKit"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
+
+[dotnet]
+
+project/assembly_name="ActionKit"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/actionkit/plugin.cfg")
