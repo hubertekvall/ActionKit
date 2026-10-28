@@ -1,5 +1,7 @@
 # ActionKit
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 An actor/component framework for **Godot 4 (.NET / C#)**, extracted from Miasmacorps and made
 game-agnostic. Drop it into any C# Godot project: actors and components, messages, health and
 damage, spawning, weapons, behavior trees, a state machine, and a set of effects and UI helpers.
@@ -143,3 +145,8 @@ viewport's active camera.
 
 This repository is also a Godot project (`project.godot`, `ActionKit.csproj`) so the addon can be
 opened and built on its own. Only `addons/actionkit/` is meant to be copied into games.
+
+## License
+
+ActionKit is released under the [MIT License](LICENSE). A copy also ships inside
+`addons/actionkit/LICENSE`, so it travels with the addon when you copy it into a game.
