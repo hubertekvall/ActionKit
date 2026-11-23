@@ -15,7 +15,11 @@ public enum SpawnParent
 	Source,
 }
 
-public readonly record struct SpawnParams(Transform3D Transform, Actor? Source = null, SpawnParent Parent = SpawnParent.Scene);
+/// <summary>
+/// Where and how to spawn. ParentNode, when set (and still alive), wins over Parent: the
+/// spawn goes straight under that node, e.g. to stick it onto something that was hit.
+/// </summary>
+public readonly record struct SpawnParams(Transform3D Transform, Actor? Source = null, SpawnParent Parent = SpawnParent.Scene, Node? ParentNode = null);
 
 /// <summary>
 /// Instantiates actor scenes. Scenes whose root isn't an Actor are wrapped in one, and any
@@ -65,6 +69,9 @@ public static class ActorFactory
 
 	private static Node? ResolveParent(in SpawnParams spawn)
 	{
+		if (GodotObject.IsInstanceValid(spawn.ParentNode) && !spawn.ParentNode!.IsQueuedForDeletion())
+			return spawn.ParentNode;
+
 		if (spawn.Parent == SpawnParent.Source
 		    && GodotObject.IsInstanceValid(spawn.Source)
 		    && !spawn.Source!.IsQueuedForDeletion())

@@ -52,6 +52,13 @@ public partial class Actor : Node3D
 	[Signal]
 	public delegate void IsKilledEventHandler();
 
+	/// <summary>
+	/// Raised whenever any actor is killed, after its own IsKilled signal. A plain static C#
+	/// event: subscribe in _Ready/OnActorReady and always unsubscribe in _ExitTree, or a freed
+	/// node stays subscribed. Good for score counters, kill feeds, quest triggers.
+	/// </summary>
+	public static event System.Action<Actor>? AnyKilled;
+
 	[Signal]
 	public delegate void IsCollidingEventHandler();
 
@@ -225,6 +232,7 @@ public partial class Actor : Node3D
 	{
 		if (IsQueuedForDeletion()) return;
 		EmitSignalIsKilled();
+		AnyKilled?.Invoke(this);
 		Broadcast(deathMessage);
 		if (queueFree) QueueFree();
 	}

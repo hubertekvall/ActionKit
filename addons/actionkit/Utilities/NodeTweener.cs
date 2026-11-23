@@ -7,10 +7,16 @@ namespace ActionKit.Utilities;
 [Tool]
 public partial class NodeTweener : Node
 {
+	/// <summary>Emitted when the tween completes (after the reverse part, if AutoReverseTween is on).</summary>
+	[Signal] public delegate void FinishedEventHandler();
+
 	[Export] public Node? TweenTarget { get; set; }
 	[Export] public StringName TargetProperty { get; set; } = "";
 	[Export] public Variant TargetValue { get; set; }
 	[Export] public float Duration { get; set; }
+
+	/// <summary>Seconds to wait before the tween starts.</summary>
+	[Export] public float Delay { get; set; } = 0f;
 	[Export] public Tween.EaseType EaseType { get; set; }
 	[Export] public Tween.TransitionType TransitionType { get; set; }
 
@@ -21,17 +27,43 @@ public partial class NodeTweener : Node
 	[Export] public bool Additive { get; set; } = false;
 
 	
-	[ExportToolButton("ExecuteTween")] public Callable ExecuteTweenButton => Callable.From(ExecuteTween);
+	// Plays the tween in the editor, then puts the property back to what it was.
+	[ExportToolButton("Test Tween")] public Callable TestTweenButton => Callable.From(TestTween);
 	
 
 	private Variant _cachedOriginValue;
 	private Tween? _currentTween;
 	private float _lastWeight;
+	private Variant _testRestoreValue;
+	private bool _testing;
 
 	public override void _EnterTree()
 	{
 		if (!IsInstanceValid(TweenTarget)) return;
-		if (AutoTween) ExecuteTween();
+		if (AutoTween && !Engine.IsEditorHint()) ExecuteTween();
+	}
+
+	private void TestTween()
+	{
+		if (!IsInstanceValid(TweenTarget)) return;
+
+		// Pressing again mid-test keeps the value from before the first press.
+		if (!_testing) _testRestoreValue = TweenTarget!.Get(TargetProperty);
+		_testing = true;
+
+		ExecuteTween();
+		_currentTween!.TweenInterval(0.5f);
+		_currentTween.TweenCallback(Callable.From(() =>
+		{
+			TweenTarget!.Set(TargetProperty, _testRestoreValue);
+			_testing = false;
+		}));
+	}
+
+	/// <summary>Stops the tween where it is (e.g. to start an out-animation on the same property).</summary>
+	public void Stop()
+	{
+		if (_currentTween != null && _currentTween.IsValid()) _currentTween.Kill();
 	}
 
 
@@ -48,6 +80,9 @@ public partial class NodeTweener : Node
 		_currentTween = CreateTween();
 		_currentTween.SetEase(EaseType);
 		_currentTween.SetTrans(TransitionType);
+		_currentTween.Finished += () => EmitSignal(SignalName.Finished);
+
+		if (Delay > 0f) _currentTween.TweenInterval(Delay);
 
 		if (Additive)
 		{

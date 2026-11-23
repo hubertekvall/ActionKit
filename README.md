@@ -47,7 +47,8 @@ Ship (Actor)                     ← thin coordinator
   Built in: `CollisionMessage`/`ActorCollisionMessage` (sent every frame by the body for each
   contact), `DamageMessage` (negative heals), `DeathMessage`, `SpawnEffectMessage`,
   `TargetAssignedMessage`. Subclass `ActorMessage` for your own events.
-- **Death.** `actor.Kill()` emits `IsKilled`, broadcasts a `DeathMessage` and frees the actor.
+- **Death.** `actor.Kill()` emits `IsKilled`, raises the static `Actor.AnyKilled` event (for score
+  counters, kill feeds), broadcasts a `DeathMessage` and frees the actor.
 - **Steering.** Movement components implement `ISteerable` (`SetHeading`, `SetLookDirection`).
   Input controllers and behavior-tree movement nodes only talk to `ISteerable`
   (`actor.GetSteerable()`), so you can swap in your own movement model.
@@ -56,22 +57,22 @@ Ship (Actor)                     ← thin coordinator
 
 | Folder | Namespace | Contents |
 |---|---|---|
-| `Core/`, `Spawning/` | `ActionKit` | `Actor`, `ActorComponent`, bodies, `CollisionContact`, messages, `ISteerable`, `ActorFactory`, `ActorSpawner` |
+| `Core/`, `Spawning/` | `ActionKit` | `Actor`, `ActorComponent`, bodies, `CollisionContact`, messages, `ISteerable`, `ActorFactory`, `ActorSpawner`, `EffectSpawn` |
 | `Components/Combat` | `ActionKit.Components` | `HealthComponent`, `CollisionDamage`, `VelocityDamage` (ramming), `HealthThresholdSpawnTrigger`, `OnDepletedDisableComponents` |
 | `Components/Lifetime` | | `LifetimeComponent`, `RandomLifetimeComponent`, `DisableSceneComponents` |
-| `Components/Movement` | | `FlightMovement` (`ISteerable`), `InputHeadingController`, `MouseHeadingController` |
+| `Components/Movement` | | `FlightMovement` (`ISteerable`), `InputHeadingController`, `MouseHeadingController`, `KeyboardSteering` (tank-style) |
 | `Components/Physics` | | `HoverComponent`, `HomingComponent`, `SpringBounceComponent`, `BlastSphere`, `ForwardImpulse`, `SphereImpulse`, `SpawnerImpulse`, `NoCollisionWithSpawner`, `OnCollisionKill` |
-| `Components/Spawning` | | `SpawnComponent` base and `SpawnEffectsComponent`, `OnReadySpawn`, `OnKillSpawn`, `OnDamageSpawn`, `OnCollisionSpawn`, `OnScreenSpawn`, timed/toggled random-area spawners, `OnDamageAddComponents`, `OnDeathAddComponents` |
+| `Components/Spawning` | | `SpawnComponent` base and `SpawnEffectsComponent`, `OnReadySpawn`, `OnKillSpawn`, `OnDamageSpawn`, `OnCollisionSpawn`, `OnCollisionAttachSpawn`, `OnScreenSpawn`, timed/toggled random-area spawners, `OnDamageAddComponents`, `OnDeathAddComponents` |
 | `Components/Targeting` | | `TargetFinder` with pluggable `TargetSelector` resources (`DistanceSelector`) |
-| `Components/Visual` | | `HurtMesh`, `ShieldMesh`, `DetachedEffects`, `DamageTextSpawner`, `CameraShakeOnReady`, velocity-driven fade/offset/scale/shader parameter |
+| `Components/Visual` | | `HurtMesh`, `ShieldMesh`, `DetachedEffects`, `DamageTextSpawner`, `CameraShakeOnReady`, `HealthDamageShaderParameter`, velocity-driven fade/offset/scale/shader parameter/particle amount |
 | `Components/Destruction` | | `MeshSlicer` / `RigidMeshSlicer` (Voronoi fracture, bakeable in the editor), `MeshFracturer` |
-| `Weapons/` | `ActionKit.Weapons` | `Weapon`, `Turret`, `HardpointWeapon`, `BeamWeapon` + `BeamEffect` + `BeamMesh`, `WeaponPlatform` |
+| `Weapons/` | `ActionKit.Weapons` | `Weapon` (Auto/Manual/Off modes), `Turret` (yaw limits), `HardpointWeapon`, `BeamWeapon` + `BeamEffect` + `BeamMesh`, `WeaponPlatform`, `AutoTargeting`, `MouseAim`, `WeaponHotkeys`, `WeaponModeMarker` |
 | `AI/BehaviorTree` | `ActionKit.AI` | `BehaviorTree`, `AmortizedBehaviorTree`, typed blackboard, composites, decorators, targeting/movement/weapon actions and conditions (all `BT*`) |
 | `StateMachine/` | `ActionKit.StateMachines` | `StateMachine`, `State` |
 | `Audio/` | `ActionKit.Audio` | `AudioStreamOrigin3D` (sounds that outlive their node), `RampedAudioStream`, `VelocityEngineSound` |
 | `Effects/` | `ActionKit.Effects` | `CameraShake`, `TrailMesh3D`, `ParticleOrigin3D`, one-shot particles, `BlendedTexture`, `DepthCopyEffect` |
-| `UI/` | `ActionKit.UI` | `PieControl`, `DeltaPieControl`, `DeltaProgressbar`, `SmoothStack`, `DamageText` |
-| `Utilities/` | `ActionKit.Utilities` | `QueryList`, node/vector/float extensions, `NodeTweener`, `SpringDamper`, `PoissonDisk`, `CopyPosition` |
+| `UI/` | `ActionKit.UI` | `PieControl`, `DeltaPieControl`, `DeltaProgressbar`, `SmoothStack`, `DamageText`, `PropertyReader` (inspector data binding), `CursorSwitcher`, `WeaponMarker` |
+| `Utilities/` | `ActionKit.Utilities` | `QueryList`, node/vector/float extensions, `NodeTweener`, `SpringDamper`, `PoissonDisk`, `CopyPosition`, `FollowNode3DOnScreen`, `ShowRenderLayers`, `Ballistics.LeadPoint` |
 
 ## Recipes
 
@@ -80,12 +81,16 @@ Monitor* on, *Max Contacts Reported* > 0), plus `ForwardImpulse`, `CollisionDama
 `OnCollisionKill`, `LifetimeComponent` and `NoCollisionWithSpawner`. Add `HomingComponent` to make
 it a missile; it picks up the weapon's target automatically.
 
-**Weapon.** Add a `Weapon` under your ship, set `Emitters`, `TargetGroup`, `ScanRadius` and
-`FireTimings`, and give it a `SpawnEffectsComponent` with the projectile scene. With `AutoTarget`
-and `AutoFire` on it fights on its own. For a player-aimed gun turn both off, set
-`RequireTarget = false` and call `FireWeapons()` while the fire button is held. `Fired`,
-`Reloading`, `ReadyState`, `Released` and `StateChanged` signals plus `Ammo` and `Progress` drive
-UI.
+**Weapon.** Add a `Weapon` under your ship, set `Emitters` and `FireTimings`, and give it a
+`SpawnEffectsComponent` with the projectile scene (its `RandomOffset` is the spread). Add an
+`AutoTargeting` child (`TargetGroup`, `ScanRadius`) and with `AutoFire` on it fights on its own.
+`Mode` switches between `Auto` (aims at `Target`), `Manual` (aims at `ManualAimPoint`, fires while
+`TriggerHeld`) and `Off`; `CycleMode()` steps through them. For player aiming put `MouseAim` on the
+ship (it aims every Manual weapon at the mouse, snapping to and leading targets using each
+weapon's `ProjectileSpeed`) and `WeaponHotkeys` to cycle modes with the number keys set on each
+`WeaponPlatform.Hotkey`. A fixed forward gun can instead set `RequireTarget = false` and call
+`FireWeapons()` itself. `Fired`, `Reloading`, `ReadyState`, `Released`, `Disabled`,
+`StateChanged` and `ModeChanged` signals plus `Ammo`, `AmmoFraction` and `Progress` drive UI.
 
 **Enemy AI.** Add a `BehaviorTree` (or `AmortizedBehaviorTree` for crowds) under the actor with a
 composite as its first child, e.g.
@@ -111,7 +116,8 @@ Movement nodes steer through the actor's `ISteerable` (e.g. `FlightMovement`).
 ## Not included
 
 Game-specific parts of Miasmacorps stayed in the game: the radar boxes, the weapon-card HUD, the
-monster wave manager, encampment spawning, and the monster/player states. The camera shake no
+monster wave manager, encampment spawning, the monster/player states, the combat-mode overlays
+and aim guide, the room/pause/armory game shell, and the Phantom Camera zoom. The camera shake no
 longer needs Phantom Camera.
 
 ## Coming from Miasmacorps
@@ -136,6 +142,10 @@ Mostly the same API under new namespaces. The renames:
 | `RandomPlayerPositionOffset` | `BTRandomPointAroundGroup` |
 | `OneShotParticleGPU` / `OneShotParticle` | `OneShotGpuParticles3D` / `OneShotCpuParticles3D` |
 | `NodeCreation` / `VectorUtilities` | `NodeExtensions` / `VectorExtensions` |
+| `Weapon.ScanRadius` / `TargetGroup` / `Sweep*` | same properties on an `AutoTargeting` child |
+| `Weapon.EmissionSpread` | `SpawnComponent.RandomOffset` |
+| `CombatMode` | `MouseAim` (input action names and active-only scenes are exports) |
+| `GlobalEventBus.ActorKilled` | `Actor.AnyKilled` |
 
 Hard-coded groups (`"Monster"`, `"Player"`, `"ActionCamera"`) are gone: weapons, homing and
 targeting take a group export, and camera users take a `Camera3D` export that falls back to the

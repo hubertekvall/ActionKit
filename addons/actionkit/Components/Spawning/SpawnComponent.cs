@@ -29,9 +29,19 @@ public abstract partial class SpawnComponent : ActorComponent
 	// light ranges don't, so those are scaled by hand.
 	[Export] public float SpawnScale { get; set; } = 1.0f;
 
-	protected List<Actor> Spawn(Transform3D transform, Actor? source)
+	/// <summary>
+	/// Random sideways/up-down offset (local X/Y) applied to each spawn, e.g. weapon spread.
+	/// Everything spawned by one Spawn() call shares the same offset.
+	/// </summary>
+	[Export] public float RandomOffset { get; set; } = 0.0f;
+
+	/// <summary>Spawns every scene at transform. parentNode overrides Parent (see SpawnParams.ParentNode).</summary>
+	protected List<Actor> Spawn(Transform3D transform, Actor? source, Node? parentNode = null)
 	{
-		var spawned = ActorFactory.SpawnAll(Scenes, new SpawnParams(transform.ScaledLocal(Vector3.One * SpawnScale), source, Parent), Templates);
+		if (RandomOffset != 0.0f)
+			transform = transform.TranslatedLocal(new Vector3((float)GD.RandRange(-RandomOffset, RandomOffset), (float)GD.RandRange(-RandomOffset, RandomOffset), 0));
+
+		var spawned = ActorFactory.SpawnAll(Scenes, new SpawnParams(transform.ScaledLocal(Vector3.One * SpawnScale), source, Parent, parentNode), Templates);
 		if (SpawnScale != 1.0f)
 			foreach (var actor in spawned) ScaleLights(actor);
 		return spawned;

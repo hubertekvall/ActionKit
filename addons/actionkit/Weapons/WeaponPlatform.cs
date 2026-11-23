@@ -7,12 +7,15 @@ namespace ActionKit.Weapons;
 /// <summary>
 /// A slot a weapon sits in. Place it where the weapon should go and put the weapon scene
 /// under it as a child; SetWeapon swaps that child at runtime (loadout screens, pickups).
-/// SortOrder is free for UI to sort weapon displays by.
+/// SortOrder is free for UI to sort weapon displays by. Hotkey is the number key (1-9) that
+/// WeaponHotkeys binds to cycling the weapon's mode; 0 means no key.
 /// </summary>
 [GlobalClass]
 public partial class WeaponPlatform : Node3D
 {
 	[Export] public int SortOrder { get; set; }
+
+	[Export(PropertyHint.Range, "0,9")] public int Hotkey { get; set; }
 
 	public Weapon? Weapon { get; private set; }
 
