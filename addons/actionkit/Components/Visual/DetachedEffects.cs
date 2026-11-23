@@ -7,14 +7,14 @@ namespace ActionKit.Components;
 /// <summary>
 /// Moves Effects (sounds, particles, ...) out of the actor into the current scene and keeps
 /// it glued to the spot it used to sit at. When the actor leaves the tree, Effects stays
-/// behind: looping particles stop emitting so they trail off, everything already playing
-/// finishes, and Effects is freed after FreeDelay seconds.
+/// behind: particles stop emitting, everything already playing finishes on its own, and
+/// Effects frees itself once the last particle or sound is done. Looping sounds never
+/// finish, so they don't hold it up; they go when Effects goes.
 /// </summary>
 [GlobalClass]
 public partial class DetachedEffects : ActorComponent
 {
 	[Export] public Node3D? Effects { get; set; }
-	[Export] public float FreeDelay { get; set; } = 5.0f;
 
 	private Node3D _anchor = null!;
 	private Transform3D _offset;
@@ -48,13 +48,47 @@ public partial class DetachedEffects : ActorComponent
 		if (!IsInstanceValid(Effects) || Effects!.IsQueuedForDeletion()) return;
 
 		var effects = Effects;
-		foreach (var particles in effects.FindDescendantsOfType<GpuParticles3D>())
-			if (!particles.OneShot) particles.Emitting = false;
-		if (effects is GpuParticles3D { OneShot: false } self) self.Emitting = false;
+		var nodes = effects.FindDescendantsOfType<Node>();
+		nodes.Add(effects);
 
-		effects.GetTree().CreateTimer(FreeDelay).Timeout += () =>
+		// Starts at 1 so nothing can free Effects while we're still hooking things up;
+		// the OnFinished() call at the end releases that hold.
+		var remaining = 1;
+		void OnFinished()
 		{
-			if (IsInstanceValid(effects)) effects.QueueFree();
-		};
+			remaining--;
+			if (remaining == 0 && IsInstanceValid(effects)) effects.QueueFree();
+		}
+
+		foreach (var node in nodes)
+		{
+			switch (node)
+			{
+				case GpuParticles3D { Emitting: true } particles:
+					remaining++;
+					particles.Finished += OnFinished;
+					particles.Emitting = false;
+					break;
+				case CpuParticles3D { Emitting: true } particles:
+					remaining++;
+					particles.Finished += OnFinished;
+					particles.Emitting = false;
+					break;
+				case AudioStreamPlayer3D { Playing: true } audio when !IsLooping(audio.Stream):
+					remaining++;
+					audio.Finished += OnFinished;
+					break;
+			}
+		}
+
+		OnFinished();
 	}
+
+	private static bool IsLooping(AudioStream? stream) => stream switch
+	{
+		AudioStreamWav wav => wav.LoopMode != AudioStreamWav.LoopModeEnum.Disabled,
+		AudioStreamOggVorbis ogg => ogg.Loop,
+		AudioStreamMP3 mp3 => mp3.Loop,
+		_ => false,
+	};
 }

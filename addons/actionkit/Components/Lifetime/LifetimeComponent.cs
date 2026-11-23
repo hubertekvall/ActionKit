@@ -10,7 +10,8 @@ public partial class LifetimeComponent : ActorComponent
 
 	public override void OnActorReady()
 	{
-		ActorOwner.GetTree().CreateTimer(Lifetime).Timeout += TerminateActor;
+		// processAlways: false so the timer stops counting while the tree is paused.
+		ActorOwner.GetTree().CreateTimer(Lifetime, processAlways: false).Timeout += TerminateActor;
 	}
 
 	private void TerminateActor()

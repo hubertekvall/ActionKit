@@ -1,12 +1,14 @@
 #nullable enable
+using ActionKit.Weapons;
 using Godot;
 
 namespace ActionKit.AI;
 
 /// <summary>
 /// Points every weapon under the actor (Actor.Weapons) at BTKeys.CurrentTarget, so the tree
-/// makes the targeting decision once for the whole actor. Turns the weapons' own AutoTarget
-/// off so they don't override it.
+/// makes the targeting decision once for the whole actor. Don't give these weapons an
+/// AutoTargeting component, or it will override the tree's choice. Weapons in Manual or Off
+/// mode are left alone.
 /// </summary>
 [GlobalClass]
 public partial class BTAimWeaponsAtTarget : BTNode
@@ -18,8 +20,8 @@ public partial class BTAimWeaponsAtTarget : BTNode
 
 		foreach (var weapon in OwnerActor.Weapons)
 		{
-			weapon.AutoTarget = false;
-			weapon.Target = target;
+			if (weapon.Mode == Weapon.WeaponMode.Auto)
+				weapon.Target = target;
 		}
 
 		return BTStatus.Success;
